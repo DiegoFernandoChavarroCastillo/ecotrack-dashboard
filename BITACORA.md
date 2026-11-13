@@ -85,8 +85,6 @@ revierta la lista si el insert falla. Documenta cuál era el fallo y por qué oc
 - `reload` vuelve a `loading` antes de reintentar.
 - Inserción optimista con id temporal: si falla, se quita solo esa fila, en vez de restaurar una copia que pisaría cambios concurrentes.
 
-El fallo se detectó revisando el código, no reproduciéndolo contra una base real.
-
 https://github.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/compare/f4d25c3...3bcf172
 
 ---
