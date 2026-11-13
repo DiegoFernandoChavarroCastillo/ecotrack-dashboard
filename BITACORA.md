@@ -143,6 +143,7 @@ setList((prev) => prev.status === 'success' ? { ...prev, data: prev.data.filter(
 - **Vacío:** «Aún no hay mediciones…» con borde punteado.
 - **Error:** caja roja con el mensaje traducido y el botón «Reintentar».
 - **Guardado:** confirmación «Medición «…» guardada».
+- **Resumen:** muestra «—» mientras no hay datos válidos, en vez de un «0 kg» engañoso.
 
 **Accesibilidad:**
 - `<label htmlFor>` con ids de `useId` en los tres campos (`EmissionForm.tsx:50, 64, 76`).
@@ -150,10 +151,13 @@ setList((prev) => prev.status === 'success' ? { ...prev, data: prev.data.filter(
 - `aria-busy={isLoading}` en el resumen y en la lista (`EmissionsTracker.tsx:33, 68`).
 - `focus-visible:ring-2` en campos y botones; todos son elementos nativos, así que se manejan con teclado.
 
+**Demostración.** Las capturas usan datos simulados con `scripts/mock-supabase.mjs`, un servidor local compatible con la API REST de Supabase. El error se provoca deteniéndolo y la vista móvil usa la emulación de dispositivo a 390 px.
+
 ![Carga](docs/01-carga.png)
 ![Error](docs/02-error.png)
 ![Lista con datos](docs/03-lista.png)
 ![Vista móvil 390px](docs/04-movil-390.png)
+![Inserción](docs/05-insercion.png)
 
 ---
 
