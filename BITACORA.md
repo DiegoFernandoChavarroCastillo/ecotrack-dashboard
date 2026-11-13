@@ -7,7 +7,7 @@
 
 ## 1. Ciclo Spec-to-Code
 
-Cuatro iteraciones, un commit cada una. Los prompts son los textos de cada etapa tal como se le entregaron al asistente.
+Cuatro iteraciones, un commit cada una. Los prompts son los textos de cada etapa tal como se le entregaron al asistente. Las rutas `archivo:línea` son relativas al repositorio.
 
 ### Iteración 1 — Estructura · `5c29d2e`
 
@@ -18,9 +18,9 @@ y las interfaces TypeScript de props y del retorno del hook. Crea los archivos c
 firmas, aún sin implementar la lógica.
 ```
 
-**Qué cambió:** se fija la arquitectura antes que la lógica: `lib/` (cliente), `types/` (contratos), `hooks/` (datos) y `components/` (UI). `UseEmissionsResult` y las props quedan tipadas desde el inicio, y el hook es un stub que compila, así que el contrato existe antes que la implementación.
+**Qué cambió:** se fija la arquitectura antes que la lógica: `lib/` (cliente), `types/` (contratos), `hooks/` (datos) y `components/` (UI). El hook es un stub tipado que compila: el contrato existe antes que la implementación.
 
-Commit inicial, sin anterior con el que comparar: https://github.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/commit/5c29d2e
+Commit inicial: https://github.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/commit/5c29d2e
 
 ### Iteración 2 — Lógica · `db224a8`
 
@@ -91,18 +91,7 @@ https://github.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/compare/f4d2
 
 ## 2. Ejecución técnica
 
-**Separación lógica/UI.** Ningún componente importa `supabase`; el hook es la única frontera con los datos (`src/types/emissions.ts:23-28`):
-
-```ts
-export interface UseEmissionsResult {
-  list: RequestState<Emission[]>
-  submit: RequestState<Emission>
-  addEmission: (input: NewEmission) => Promise<boolean>
-  reload: () => Promise<void>
-}
-```
-
-`EmissionsTracker.tsx:14` solo consume: `const { list, submit, addEmission, reload } = useEmissions()`.
+**Separación lógica/UI.** Ningún componente importa `supabase`; el hook es la única frontera con los datos. Su contrato `UseEmissionsResult` (`types/emissions.ts:23-28`) expone `list`, `submit`, `addEmission` y `reload`, y `EmissionsTracker.tsx:14` solo los consume: `const { list, submit, addEmission, reload } = useEmissions()`.
 
 **TypeScript estricto.** Unión discriminada (`src/types/emissions.ts:17-21`). El estado `success` es el único que tiene `data`, así que el compilador impide leer datos durante `loading`:
 
@@ -114,7 +103,7 @@ export type RequestState<T> =
   | { status: 'error'; error: string }
 ```
 
-`Emission` se deriva de `Database['public']['Tables']['emissions']['Row']`. El comando `grep -rn ": any\|as any" src/` no devuelve ninguna coincidencia (código de salida 1) y `npm run build` (`tsc -b && vite build`) pasa sin errores.
+`Emission` se deriva de `Database['public']['Tables']['emissions']['Row']`. El comando `grep -rn ": any\|as any" src/` no devuelve ninguna coincidencia y `npm run build` (`tsc -b && vite build`) pasa sin errores.
 
 **Manejo asíncrono.**
 - **Carga y orden** (`useEmissions.ts:21-26`): la respuesta solo se aplica si sigue siendo la última petición.
@@ -123,24 +112,22 @@ export type RequestState<T> =
 
 ```ts
 if (inFlight.current) return false
-inFlight.current = true
-setList((prev) => (prev.status === 'success' ? { ...prev, data: [optimistic, ...prev.data] } : prev))
-const { data, error } = await supabase.from('emissions').insert(input).select().single()
-// si error:
-setList((prev) => prev.status === 'success' ? { ...prev, data: prev.data.filter((e) => e.id !== tempId) } : prev)
+setList((p) => (p.status === 'success' ? { ...p, data: [optimistic, ...p.data] } : p))
+// si el insert falla, se quita solo la fila optimista:
+setList((p) => p.status === 'success' ? { ...p, data: p.data.filter((e) => e.id !== tempId) } : p)
 ```
 
 ---
 
 ## 3. Calidad de UI
 
-**Grid responsive** (`EmissionsTracker.tsx:10`): `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3`. Es 1 columna en móvil, 2 desde 640 px y 3 desde 1024 px. El formulario usa `sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto]`.
+**Grid responsive** (`EmissionsTracker.tsx:10`): `grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3`. 1 columna en móvil, 2 desde 640 px y 3 desde 1024 px.
 
 **Estado deshabilitado** (`EmissionForm.tsx:94-95`): `disabled={submitting}` con `disabled:cursor-not-allowed disabled:opacity-60`. Mientras guarda, el texto cambia a «Guardando…».
 
 **Feedback:**
-- **Carga:** skeleton de 6 bloques `h-36 animate-pulse rounded-xl bg-slate-200` con `aria-hidden`, más un texto «Cargando mediciones…» solo para lectores de pantalla.
-- **Vacío:** «Aún no hay mediciones…» con borde punteado.
+- **Carga:** skeleton `animate-pulse` con `aria-hidden` y texto `sr-only` para lectores de pantalla.
+- **Vacío:** «Aún no hay mediciones…».
 - **Error:** caja roja con el mensaje traducido y el botón «Reintentar».
 - **Guardado:** confirmación «Medición «…» guardada».
 - **Resumen:** muestra «—» mientras no hay datos válidos, en vez de un «0 kg» engañoso.
@@ -149,15 +136,15 @@ setList((prev) => prev.status === 'success' ? { ...prev, data: prev.data.filter(
 - `<label htmlFor>` con ids de `useId` en los tres campos (`EmissionForm.tsx:50, 64, 76`).
 - `aria-live="polite"` en la validación y en los mensajes de guardado y de lista (`EmissionsTracker.tsx:56, 72`).
 - `aria-busy={isLoading}` en el resumen y en la lista (`EmissionsTracker.tsx:33, 68`).
-- `focus-visible:ring-2` en campos y botones; todos son elementos nativos, así que se manejan con teclado.
+- `focus-visible:ring-2` en campos y botones; elementos nativos operables por teclado.
 
-**Demostración.** Las capturas usan datos simulados con `scripts/mock-supabase.mjs`, un servidor local compatible con la API REST de Supabase. El error se provoca deteniéndolo y la vista móvil usa la emulación de dispositivo a 390 px.
+**Demostración.** Datos simulados con `scripts/mock-supabase.mjs`, un servidor local compatible con la API REST de Supabase. El error se provoca deteniéndolo.
 
-![Carga](docs/01-carga.png)
-![Error](docs/02-error.png)
-![Lista con datos](docs/03-lista.png)
-![Vista móvil 390px](docs/04-movil-390.png)
-![Inserción](docs/05-insercion.png)
+![Carga](https://raw.githubusercontent.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/main/docs/01-carga.png)
+![Error](https://raw.githubusercontent.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/main/docs/02-error.png)
+![Lista con datos](https://raw.githubusercontent.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/main/docs/03-lista.png)
+![Vista móvil 390px](https://raw.githubusercontent.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/main/docs/04-movil-390.png)
+![Inserción](https://raw.githubusercontent.com/DiegoFernandoChavarroCastillo/ecotrack-dashboard/main/docs/05-insercion.png)
 
 ---
 
