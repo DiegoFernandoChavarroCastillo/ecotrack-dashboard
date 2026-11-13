@@ -1,20 +1,30 @@
-export type EmissionCategory = 'transporte' | 'energia' | 'residuos'
+import type { Database } from './database'
 
-export interface Emission {
-  id: string
-  source_name: string
-  category: EmissionCategory
-  co2_kg: number
-  created_at: string
+type EmissionsTable = Database['public']['Tables']['emissions']
+
+export type Emission = EmissionsTable['Row']
+export type EmissionCategory = Database['public']['Enums']['emission_category']
+export type NewEmission = Pick<EmissionsTable['Insert'], 'source_name' | 'category' | 'co2_kg'>
+
+export const CATEGORY_LABELS: Record<EmissionCategory, string> = {
+  transporte: 'Transporte',
+  energia: 'Energía',
+  residuos: 'Residuos',
 }
 
-export type NewEmission = Pick<Emission, 'source_name' | 'category' | 'co2_kg'>
+export const CATEGORIES = Object.keys(CATEGORY_LABELS) as EmissionCategory[]
+
+export type RequestState<T> =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'success'; data: T }
+  | { status: 'error'; error: string }
 
 export interface UseEmissionsResult {
-  emissions: Emission[]
-  loading: boolean
-  error: string | null
+  list: RequestState<Emission[]>
+  submit: RequestState<Emission>
   addEmission: (input: NewEmission) => Promise<boolean>
+  reload: () => Promise<void>
 }
 
 export interface EmissionCardProps {

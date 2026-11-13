@@ -1,37 +1,38 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { translateError } from '../lib/errors'
 import { supabase } from '../lib/supabase'
-import type { Emission, NewEmission, UseEmissionsResult } from '../types/emissions'
+import type { Emission, NewEmission, RequestState, UseEmissionsResult } from '../types/emissions'
 
 export function useEmissions(): UseEmissionsResult {
-  const [emissions, setEmissions] = useState<Emission[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [list, setList] = useState<RequestState<Emission[]>>({ status: 'loading' })
+  const [submit, setSubmit] = useState<RequestState<Emission>>({ status: 'idle' })
 
-  const fetchEmissions = async () => {
-    setLoading(true)
+  const reload = useCallback(async () => {
     const { data, error } = await supabase
       .from('emissions')
       .select('*')
       .order('created_at', { ascending: false })
-    if (error) setError(translateError(error))
-    else setEmissions((data ?? []) as Emission[])
-    setLoading(false)
-  }
-
-  useEffect(() => {
-    fetchEmissions()
+    setList(error ? { status: 'error', error: translateError(error) } : { status: 'success', data })
   }, [])
 
-  const addEmission = async (input: NewEmission) => {
-    const { error } = await supabase.from('emissions').insert(input)
-    if (error) {
-      setError(translateError(error))
-      return false
-    }
-    await fetchEmissions()
-    return true
-  }
+  useEffect(() => {
+    void reload()
+  }, [reload])
 
-  return { emissions, loading, error, addEmission }
+  const addEmission = useCallback(
+    async (input: NewEmission) => {
+      setSubmit({ status: 'loading' })
+      const { data, error } = await supabase.from('emissions').insert(input).select().single()
+      if (error) {
+        setSubmit({ status: 'error', error: translateError(error) })
+        return false
+      }
+      setSubmit({ status: 'success', data })
+      await reload()
+      return true
+    },
+    [reload],
+  )
+
+  return { list, submit, addEmission, reload }
 }
