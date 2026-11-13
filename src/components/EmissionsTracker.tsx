@@ -37,12 +37,12 @@ export function EmissionsTracker() {
           <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <div className="col-span-2 rounded-xl bg-emerald-800 p-4 text-white lg:col-span-1">
               <dt className="text-sm text-emerald-100">Total</dt>
-              <dd className="text-2xl font-bold tabular-nums">{kg.format(total)} kg</dd>
+              <dd className="text-2xl font-bold tabular-nums">{list.status !== 'success' ? '—' : `${kg.format(total)} kg`}</dd>
             </div>
             {CATEGORIES.map((c) => (
               <div key={c} className="rounded-xl border border-slate-200 bg-white p-4">
                 <dt className="text-sm text-slate-600">{CATEGORY_LABELS[c]}</dt>
-                <dd className="text-2xl font-bold tabular-nums text-slate-900">{kg.format(byCategory[c])} kg</dd>
+                <dd className="text-2xl font-bold tabular-nums text-slate-900">{list.status !== 'success' ? '—' : `${kg.format(byCategory[c])} kg`}</dd>
               </div>
             ))}
           </dl>
